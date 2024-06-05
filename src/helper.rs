@@ -37,7 +37,7 @@ pub fn parse_string(s: &str) -> Option<(dfa::Transtions<char>, dfa::State, Vec<d
     }
 }
 
-pub fn parse_string_nfa(s: &str) -> Option<(nfa::Transtions<char>, nfa::State, Vec<nfa::State>)> {
+pub fn parse_string_nfa(s: &str) -> Option<(nfa::Transtions<char>, nfa::State, nfa::State)> {
     let lines = s.lines().collect::<Vec<_>>();
     let re = Regex::new(r"(\d), (.|\.) -> (\d)").unwrap();
     let re1 = Regex::new(r"(\d)").unwrap();
@@ -68,7 +68,7 @@ pub fn parse_string_nfa(s: &str) -> Option<(nfa::Transtions<char>, nfa::State, V
     }
 
     if let Some(start) = re1.captures(lines.last().unwrap()) {
-        Some((trans, start[1].parse().unwrap(), acc))
+        Some((trans, start[1].parse().unwrap(), acc[0]))
     } else {
         None
     }

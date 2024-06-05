@@ -141,15 +141,15 @@ fn convert_to_prefix(s: &str) -> Option<String> {
     Some(res)
 }
 
-pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
-    let mut stack = VecDeque::<Nfa<char>>::new();
+pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa<char>> {
+    let mut stack = VecDeque::<ThompsonNfa<char>>::new();
 
     for i in s.chars() {
         if i.is_alphabetic() {
-            stack.push_front(Nfa::new(
+            stack.push_front(ThompsonNfa::new(
                 Transtions::from([((0, Some(i)), vec![1])]),
                 0,
-                vec![1],
+                1,
             ));
         } else {
             match i {
@@ -197,7 +197,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
     stack.pop_front()
 }
 
-pub fn compile_regex(s: &str) -> Option<Nfa<char>> {
+pub fn compile_regex(s: &str) -> Option<ThompsonNfa<char>> {
     let s = convert_to_prefix(s)?;
 
     println!("{s}");
