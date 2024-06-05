@@ -146,11 +146,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa<char>> {
 
     for i in s.chars() {
         if i.is_alphabetic() {
-            stack.push_front(ThompsonNfa::new(
-                Transtions::from([((0, Some(i)), vec![1])]),
-                0,
-                1,
-            ));
+            stack.push_front(ThompsonNfa::new_one_symbol(i));
         } else {
             match i {
                 '.' => {
@@ -293,6 +289,29 @@ mod test {
         assert!(r.run(&['b', 'c', 'g']));
         assert!(r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
 
+        assert!(!r.run(&['g', 'c', 'c', 'd']));
+    }
+
+    #[test]
+    fn basic_regex_long_word() {
+        let mut r = compile_regex("(hello|world)").unwrap();
+
+        assert!(r.run(&['h', 'e', 'l', 'l', 'o']));
+        assert!(r.run(&['w', 'o', 'r', 'l', 'd']));
+
+        assert!(!r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
+        assert!(!r.run(&['g', 'c', 'c', 'd']));
+    }
+
+    #[test]
+    fn complex_regex_long_word() {
+        let mut r = compile_regex("(hello|world)*").unwrap();
+
+        assert!(r.run(&['h', 'e', 'l', 'l', 'o']));
+        assert!(r.run(&['h', 'e', 'l', 'l', 'o', 'h', 'e', 'l', 'l', 'o']));
+        assert!(r.run(&['w', 'o', 'r', 'l', 'd', 'h', 'e', 'l', 'l', 'o']));
+
+        assert!(!r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
         assert!(!r.run(&['g', 'c', 'c', 'd']));
     }
 }
