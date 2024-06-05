@@ -1,6 +1,6 @@
 use std::env;
 
-// mod dfa;
+mod dfa;
 mod nfa;
 mod regex;
 

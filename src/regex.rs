@@ -99,7 +99,7 @@ fn convert_to_prefix(s: &str) -> Option<String> {
                     '(' => {
                         let mut s = String::new();
 
-                        if ii != 0 && chars[ii - 1] != '|' {
+                        if ii != 0 && chars[ii - 1] != '|' && chars[ii - 1] != '(' {
                             s.push_str(push_to_stack(&mut stack, Op::Concat).as_str());
                         }
 
@@ -112,7 +112,11 @@ fn convert_to_prefix(s: &str) -> Option<String> {
 
                         s.push_str(push_to_stack(&mut stack, Op::ClosePar).as_str());
 
-                        if ii != chars.len() - 1 && chars[ii + 1] != '*' && chars[ii + 1] != '|' {
+                        if ii != chars.len() - 1
+                            && chars[ii + 1] != '*'
+                            && chars[ii + 1] != '|'
+                            && chars[ii + 1] != ')'
+                        {
                             s.push_str(push_to_stack(&mut stack, Op::Concat).as_str());
                         }
 
@@ -151,7 +155,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
             match i {
                 '.' => {
                     if stack.len() < 2 {
-                        eprintln!("Wrong regex");
+                        eprintln!("Wrong regex1");
                         return None;
                     }
 
@@ -163,7 +167,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
                 }
                 '|' => {
                     if stack.len() < 2 {
-                        eprintln!("Wrong regex");
+                        eprintln!("Wrong regex2");
                         return None;
                     }
 
@@ -175,7 +179,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
                 }
                 '*' => {
                     if stack.len() < 1 {
-                        eprintln!("Wrong regex");
+                        eprintln!("Wrong regex3");
                         return None;
                     }
 
@@ -196,6 +200,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
 pub fn compile_regex(s: &str) -> Option<Nfa<char>> {
     let s = convert_to_prefix(s)?;
 
+    println!("{s}");
     postfix_to_nfa(s.as_str())
 }
 
@@ -278,5 +283,16 @@ mod test {
         assert!(r.run(&['b', 'c', 'b', 'c']));
 
         assert!(!r.run(&['c', 'c', 'b', 'c']));
+    }
+
+    #[test]
+    fn complex_regex() {
+        let mut r = compile_regex("(a|b)c*(d|g)").unwrap();
+
+        assert!(r.run(&['a', 'c', 'd']));
+        assert!(r.run(&['b', 'c', 'g']));
+        assert!(r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
+
+        assert!(!r.run(&['g', 'c', 'c', 'd']));
     }
 }
