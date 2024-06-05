@@ -1,0 +1,9 @@
+digraph G {
+5 [peripheries=2];
+3 -> 5 [ label="None" ];
+0 -> 1 [ label="Some('a')" ];
+2 -> 3 [ label="Some('b')" ];
+1 -> 5 [ label="None" ];
+4 -> 2 [ label="None" ];
+4 -> 0 [ label="None" ];
+}

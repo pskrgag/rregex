@@ -1,0 +1,4 @@
+digraph G {
+1 [peripheries=2];
+0 -> 1 [ label="Some('c')" ];
+}
