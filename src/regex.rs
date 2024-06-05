@@ -141,8 +141,8 @@ fn convert_to_prefix(s: &str) -> Option<String> {
     Some(res)
 }
 
-pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa<char>> {
-    let mut stack = VecDeque::<ThompsonNfa<char>>::new();
+pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa> {
+    let mut stack = VecDeque::new();
 
     for i in s.chars() {
         if i.is_alphabetic() {
@@ -193,7 +193,7 @@ pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa<char>> {
     stack.pop_front()
 }
 
-pub fn compile_regex(s: &str) -> Option<ThompsonNfa<char>> {
+pub fn compile_regex(s: &str) -> Option<ThompsonNfa> {
     let s = convert_to_prefix(s)?;
 
     println!("{s}");
@@ -208,110 +208,113 @@ mod test {
     fn basic_regex() {
         let mut r = compile_regex("a").unwrap();
 
-        assert!(r.run(&['a']));
-        assert!(!r.run(&['b']));
-        assert!(!r.run(&['a', 'a']));
+        assert!(r.run("a"));
+        assert!(!r.run("b"));
+        assert!(!r.run("aa"));
     }
 
     #[test]
     fn basic_regex_alter() {
         let mut r = compile_regex("a|b").unwrap();
 
-        assert!(r.run(&['a']));
-        assert!(r.run(&['b']));
-        assert!(!r.run(&['a', 'a']));
-        assert!(!r.run(&['a', 'b']));
+        assert!(r.run("a"));
+        assert!(r.run("b"));
+        assert!(!r.run("aa"));
+        assert!(!r.run("ab"));
     }
 
     #[test]
     fn basic_regex_concat() {
         let mut r = compile_regex("ab").unwrap();
 
-        assert!(!r.run(&['a']));
-        assert!(!r.run(&['b']));
-        assert!(!r.run(&['a', 'a']));
-        assert!(r.run(&['a', 'b']));
-        assert!(!r.run(&['a', 'b', 'c']));
+        assert!(!r.run("a"));
+        assert!(!r.run("b"));
+        assert!(!r.run("aa"));
+        assert!(r.run("ab"));
+        assert!(!r.run("abc"));
     }
 
     #[test]
     fn basic_regex_concat_and_alt() {
         let mut r = compile_regex("(a|b)c").unwrap();
 
-        assert!(!r.run(&['a', 'a']));
-        assert!(!r.run(&['a', 'b']));
-        assert!(r.run(&['a', 'c']));
-        assert!(r.run(&['b', 'c']));
-        assert!(!r.run(&['b', 'b']));
+        assert!(!r.run("aa"));
+        assert!(!r.run("ab"));
+        assert!(r.run("ac"));
+        assert!(r.run("bc"));
+        assert!(!r.run("bb"));
     }
 
     #[test]
     fn basic_regex_closure() {
         let mut r = compile_regex("a*").unwrap();
 
-        assert!(r.run(&['a', 'a']));
-        assert!(r.run(&['a', 'a', 'a', 'a', 'a']));
-        assert!(!r.run(&['a', 'a', 'a', 'b', 'a']));
-        assert!(!r.run(&['a', 'a', 'a', 'b', 'b']));
-        assert!(!r.run(&['b', 'a', 'a', 'a', 'a']));
+        assert!(r.run("aa"));
+        assert!(r.run("aaaaa"));
+        assert!(!r.run("aaaaab"));
+        assert!(!r.run("aaaaabaaaaa"));
+        assert!(!r.run("b"));
     }
 
     #[test]
     fn basic_regex_alter_closure() {
         let mut r = compile_regex("(a|b)*").unwrap();
 
-        assert!(r.run(&['a', 'a']));
-        assert!(r.run(&['a', 'a', 'a', 'a', 'a']));
-        assert!(r.run(&['a', 'a', 'a', 'b', 'a']));
-        assert!(r.run(&['a', 'a', 'a', 'b', 'b']));
-        assert!(r.run(&['b', 'a', 'a', 'a', 'a']));
+        assert!(r.run("aaaaaaaa"));
+        assert!(r.run("abababbabababbabab"));
+        assert!(r.run("a"));
+        assert!(r.run("b"));
 
-        assert!(!r.run(&['c', 'a', 'a', 'a', 'a']));
-        assert!(!r.run(&['a', 'a', 'd', 'a', 'a']));
+        assert!(!r.run("c"));
+        assert!(!r.run("aaaaabbcbb"));
+        assert!(!r.run("aaaaabbbbc"));
     }
 
     #[test]
     fn basic_regex_alter_concat_closure() {
         let mut r = compile_regex("((a|b)c)*").unwrap();
 
-        assert!(r.run(&['a', 'c', 'a', 'c']));
-        assert!(r.run(&['b', 'c', 'a', 'c']));
-        assert!(r.run(&['b', 'c', 'b', 'c']));
+        assert!(r.run("acac"));
+        assert!(r.run("bcbc"));
+        assert!(r.run("bcac"));
+        assert!(r.run("acbc"));
 
-        assert!(!r.run(&['c', 'c', 'b', 'c']));
+        assert!(!r.run("cbac"));
+        assert!(!r.run("ccbc"));
     }
 
     #[test]
     fn complex_regex() {
         let mut r = compile_regex("(a|b)c*(d|g)").unwrap();
 
-        assert!(r.run(&['a', 'c', 'd']));
-        assert!(r.run(&['b', 'c', 'g']));
-        assert!(r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
+        assert!(r.run("acd"));
+        assert!(r.run("bcg"));
+        assert!(r.run("bcccccg"));
 
-        assert!(!r.run(&['g', 'c', 'c', 'd']));
+        assert!(!r.run("gccd"));
     }
 
     #[test]
     fn basic_regex_long_word() {
         let mut r = compile_regex("(hello|world)").unwrap();
 
-        assert!(r.run(&['h', 'e', 'l', 'l', 'o']));
-        assert!(r.run(&['w', 'o', 'r', 'l', 'd']));
+        assert!(r.run("hello"));
+        assert!(r.run("world"));
 
-        assert!(!r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
-        assert!(!r.run(&['g', 'c', 'c', 'd']));
+        assert!(!r.run("sfsfsdfsdf"));
+        assert!(!r.run("hel"));
     }
 
     #[test]
     fn complex_regex_long_word() {
         let mut r = compile_regex("(hello|world)*").unwrap();
 
-        assert!(r.run(&['h', 'e', 'l', 'l', 'o']));
-        assert!(r.run(&['h', 'e', 'l', 'l', 'o', 'h', 'e', 'l', 'l', 'o']));
-        assert!(r.run(&['w', 'o', 'r', 'l', 'd', 'h', 'e', 'l', 'l', 'o']));
+        assert!(r.run("hello"));
+        assert!(r.run("world"));
+        assert!(r.run("worldhello"));
+        assert!(r.run("worldhellohello"));
 
-        assert!(!r.run(&['b', 'c', 'c', 'c', 'c', 'g']));
-        assert!(!r.run(&['g', 'c', 'c', 'd']));
+        assert!(!r.run("worldhelloheldlo"));
+
     }
 }

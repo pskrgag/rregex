@@ -1,3 +1,4 @@
+use crate::dfa;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -5,20 +6,20 @@ use std::hash::Hash;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type State = usize;
-pub type Transtion<T> = (State, Option<T>);
-pub type Transtions<T> = HashMap<Transtion<T>, Vec<State>>;
+pub type Transtion = (State, Option<char>);
+pub type Transtions = HashMap<Transtion, Vec<State>>;
 
 #[derive(Clone, Debug)]
-pub struct ThompsonNfa<T> {
-    transitions: Transtions<T>,
+pub struct ThompsonNfa {
+    transitions: Transtions,
     start: State,
     accepting: State,
 }
 
 static STATE_CNT: AtomicUsize = AtomicUsize::new(0);
 
-impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
-    pub fn new_one_symbol(c: T) -> Self {
+impl ThompsonNfa {
+    pub fn new_one_symbol(c: char) -> Self {
         let start = STATE_CNT.fetch_add(1, Ordering::Relaxed);
         let accepting = STATE_CNT.fetch_add(1, Ordering::Relaxed);
 
@@ -33,7 +34,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
         STATE_CNT.fetch_add(1, Ordering::Relaxed)
     }
 
-    fn add_new_transition(&mut self, trans: Transtion<T>, to: State) {
+    fn add_new_transition(&mut self, trans: Transtion, to: State) {
         if let Some(s) = self.transitions.get_mut(&trans) {
             s.push(to);
         } else {
@@ -41,7 +42,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
         }
     }
 
-    fn add_new_transitions(&mut self, trans: Transtion<T>, mut to: Vec<State>) {
+    fn add_new_transitions(&mut self, trans: Transtion, mut to: Vec<State>) {
         if let Some(s) = self.transitions.get_mut(&trans) {
             s.append(&mut to);
         } else {
@@ -49,7 +50,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
         }
     }
 
-    pub fn run(&mut self, input: &[T]) -> bool {
+    pub fn run(&mut self, input: &str) -> bool {
         let mut vd = VecDeque::new();
 
         vd.push_back((self.start, input));
@@ -69,7 +70,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
                 continue;
             }
 
-            let next_char = input[0];
+            let next_char = input.chars().next().unwrap();
 
             if let Some(next) = self.transitions.get(&(state, Some(next_char))) {
                 for i in next {
@@ -90,7 +91,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
     pub fn alternate(&mut self, other: Self) {
         let mut next_state = Self::next_state();
         let mut new = Self {
-            transitions: Transtions::<T>::new(),
+            transitions: Transtions::new(),
             start: usize::MAX,
             accepting: usize::MAX,
         };
@@ -115,7 +116,7 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
 
     pub fn concatentation(&mut self, other: Self) {
         let mut new = Self {
-            transitions: Transtions::<T>::new(),
+            transitions: Transtions::new(),
             start: usize::MAX,
             accepting: usize::MAX,
         };
@@ -153,9 +154,37 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
         self.add_new_transition((self.start, None), new_acc);
         self.accepting = new_acc;
     }
+
+    pub fn subset_transition(&self) -> dfa::Dfa<char> {
+        let e_closure = |trans: &Transtions, state: State| -> Option<Vec<State>> {
+            trans.get(&(state, None)).cloned()
+        };
+
+        let delta = |trans: &Transtions, states: Vec<State>, c: char| -> Vec<State> {
+            let mut res = Vec::new();
+
+            for i in states {
+                if let Some(t) = trans.get(&(i, Some(c))) {
+                    res.extend(t);
+                }
+            }
+
+            res
+        };
+
+        let q0 = e_closure(&self.transitions, self.start).unwrap();
+        let mut q = q0.clone();
+        let mut worklist = Vec::from([q0]);
+
+        while let Some(q) = worklist.pop() {}
+
+        todo!()
+    }
 }
 
-impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
+#[cfg(test)]
+#[allow(dead_code)]
+impl ThompsonNfa {
     pub fn dump_to_dot(&self) -> String {
         let mut s = String::from("digraph G {\n");
 
@@ -176,14 +205,13 @@ impl<T: Eq + Hash + Copy + Debug> ThompsonNfa<T> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::helper::parse_string_nfa;
 
     #[test]
     fn basic_nfa() {
         let mut dfa = ThompsonNfa::new_one_symbol('a');
 
-        assert!(dfa.run("a".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa.run("abc".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("a"));
+        assert!(!dfa.run("abc"));
     }
 
     #[test]
@@ -193,8 +221,8 @@ mod test {
 
         dfa.concatentation(dfa2);
 
-        assert!(dfa.run("ab".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa.run("abc".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("ab"));
+        assert!(!dfa.run("abc"));
     }
 
     #[test]
@@ -208,59 +236,54 @@ mod test {
         dfa3.alternate(dfa4);
         dfa.concatentation(dfa3);
 
-        assert!(dfa.run("ac".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa.run("bd".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("ac"));
+        assert!(dfa.run("bd"));
     }
 
     #[test]
     fn basic_nfa_auto_alternation() {
         let mut dfa1 = ThompsonNfa::new_one_symbol('a');
 
-        assert!(dfa1.run("a".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa1.run("a"));
 
         let mut dfa2 = ThompsonNfa::new_one_symbol('b');
 
-        assert!(dfa2.run("b".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa2.run("b"));
 
         dfa2.alternate(dfa1);
-        assert!(dfa2.run("a".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa2.run("b".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa2.run("a"));
+        assert!(dfa2.run("b"));
 
-        assert!(!dfa2.run("0".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa2.run("ab".chars().collect::<Vec<_>>().as_slice()));
+        assert!(!dfa2.run("0"));
+        assert!(!dfa2.run("ab"));
     }
 
     #[test]
     fn basic_nfa_auto_concatentaion() {
         let mut dfa1 = ThompsonNfa::new_one_symbol('a');
 
-        assert!(dfa1.run("a".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa1.run("a"));
 
         let mut dfa2 = ThompsonNfa::new_one_symbol('b');
 
-        assert!(dfa2.run("b".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa2.run("b"));
 
         dfa2.concatentation(dfa1);
-        assert!(dfa2.run("ba".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa2.run("ab".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa2.run("ba"));
+        assert!(!dfa2.run("ab"));
     }
 
     #[test]
     fn basic_nfa_auto_closure() {
         let mut dfa1 = ThompsonNfa::new_one_symbol('a');
 
-        assert!(dfa1.run("a".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa1.run("a"));
 
         dfa1.closure();
 
-        assert!(dfa1.run("aaa".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa1.run("aaaaaaa".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa1.run(
-            "aaaaaaaaaaaaaaaaaaaaaaaa"
-                .chars()
-                .collect::<Vec<_>>()
-                .as_slice()
-        ));
+        assert!(dfa1.run("aaa"));
+        assert!(dfa1.run("aaaaaaa"));
+        assert!(dfa1.run("aaaaaaaaaaaaaaaaaaaaaaaa"));
     }
 
     #[test]
@@ -270,30 +293,15 @@ mod test {
 
         dfa.alternate(dfa2);
 
-        assert!(dfa.run("a".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa.run("b".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("a"));
+        assert!(dfa.run("b"));
 
         dfa.closure();
 
-        assert!(dfa.run("aaa".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa.run("aaaaaaa".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa.run(
-            "aaaaaaaaaaaaaaaaaaaaaaaa"
-                .chars()
-                .collect::<Vec<_>>()
-                .as_slice()
-        ));
-        assert!(dfa.run(
-            "aaaabbababababbabababab"
-                .chars()
-                .collect::<Vec<_>>()
-                .as_slice()
-        ));
-        assert!(!dfa.run(
-            "acaaabbababababbabababab"
-                .chars()
-                .collect::<Vec<_>>()
-                .as_slice()
-        ));
+        assert!(dfa.run("aaa"));
+        assert!(dfa.run("aaaaaaa"));
+        assert!(dfa.run("aaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert!(dfa.run("aaaabbababababbabababab"));
+        assert!(!dfa.run("acaaabbababababbabababab"));
     }
 }
