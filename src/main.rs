@@ -1,4 +1,6 @@
-mod dfa;
+use std::env;
+
+// mod dfa;
 mod nfa;
 mod regex;
 
@@ -6,9 +8,19 @@ mod regex;
 mod helper;
 
 fn main() {
-    let mut nfa = regex::compile_regex("c(a|b)");
+    let args: Vec<String> = env::args().collect();
 
-    assert!(nfa.run(&['c', 'b']));
-    assert!(nfa.run(&['c', 'a']));
-    assert!(!nfa.run(&['c', 'a', 'a']));
+    if args.len() < 3 {
+        eprintln!("Usage: {} <regex> <string>\n", args[0]);
+    } else {
+        if let Some(mut nfa) = regex::compile_regex(args[1].as_str()) {
+            if nfa.run(args[2].chars().collect::<Vec<_>>().as_slice()) {
+                println!("Matches!");
+            } else {
+                println!("Does not match!");
+            }
+        } else {
+            eprintln!("Failed to compile regex");
+        }
+    }
 }

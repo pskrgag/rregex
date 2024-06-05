@@ -32,7 +32,7 @@ fn compare_ops(op1: &Op, op2: &Op) -> bool {
     op_to_prec(op1) > op_to_prec(op2)
 }
 
-fn convert_to_prefix(s: &str) -> String {
+fn convert_to_prefix(s: &str) -> Option<String> {
     let mut stack = VecDeque::<Op>::new();
     let mut res = String::new();
 
@@ -96,37 +96,48 @@ fn convert_to_prefix(s: &str) -> String {
         } else {
             res.push_str(
                 match i {
-                    '(' => push_to_stack(&mut stack, Op::OpenPar),
-                    ')' => { 
+                    '(' => {
+                        let mut s = String::new();
+
+                        if ii != 0 && chars[ii - 1] != '|' {
+                            s.push_str(push_to_stack(&mut stack, Op::Concat).as_str());
+                        }
+
+                        s.push_str(push_to_stack(&mut stack, Op::OpenPar).as_str());
+
+                        s
+                    }
+                    ')' => {
                         let mut s = String::new();
 
                         s.push_str(push_to_stack(&mut stack, Op::ClosePar).as_str());
 
-                        if ii != s.len() - 1 && chars[ii + 1] != '*' && chars[ii + 1] != '|' {
+                        if ii != chars.len() - 1 && chars[ii + 1] != '*' && chars[ii + 1] != '|' {
                             s.push_str(push_to_stack(&mut stack, Op::Concat).as_str());
                         }
 
                         s
-                    },
+                    }
                     '|' => push_to_stack(&mut stack, Op::Alter),
                     '*' => push_to_stack(&mut stack, Op::Closure),
-                    _ => panic!("Unknown symbol"),
+                    _ => {
+                        eprintln!("Unknown symbol {:?}", i);
+                        return None;
+                    }
                 }
                 .as_str(),
             )
         }
     }
 
-    println!("stack {:?}", stack);
-
     for i in stack.iter().map(|x| op_to_str(x)) {
         res.push_str(i);
     }
 
-    res
+    Some(res)
 }
 
-pub fn postfix_to_nfa(s: &str) -> Nfa<char> {
+pub fn postfix_to_nfa(s: &str) -> Option<Nfa<char>> {
     let mut stack = VecDeque::<Nfa<char>>::new();
 
     for i in s.chars() {
@@ -139,6 +150,11 @@ pub fn postfix_to_nfa(s: &str) -> Nfa<char> {
         } else {
             match i {
                 '.' => {
+                    if stack.len() < 2 {
+                        eprintln!("Wrong regex");
+                        return None;
+                    }
+
                     let nfa1 = stack.pop_front().unwrap();
                     let mut nfa2 = stack.pop_front().unwrap();
 
@@ -146,6 +162,11 @@ pub fn postfix_to_nfa(s: &str) -> Nfa<char> {
                     stack.push_front(nfa2);
                 }
                 '|' => {
+                    if stack.len() < 2 {
+                        eprintln!("Wrong regex");
+                        return None;
+                    }
+
                     let mut nfa1 = stack.pop_front().unwrap();
                     let nfa2 = stack.pop_front().unwrap();
 
@@ -153,6 +174,11 @@ pub fn postfix_to_nfa(s: &str) -> Nfa<char> {
                     stack.push_front(nfa1);
                 }
                 '*' => {
+                    if stack.len() < 1 {
+                        eprintln!("Wrong regex");
+                        return None;
+                    }
+
                     let mut nfa1 = stack.pop_front().unwrap();
 
                     nfa1.closure();
@@ -164,13 +190,12 @@ pub fn postfix_to_nfa(s: &str) -> Nfa<char> {
     }
 
     assert!(stack.len() == 1);
-    stack.pop_front().unwrap()
+    stack.pop_front()
 }
 
-pub fn compile_regex(s: &str) -> Nfa<char> {
-    let s = convert_to_prefix(s);
+pub fn compile_regex(s: &str) -> Option<Nfa<char>> {
+    let s = convert_to_prefix(s)?;
 
-    println!("{s}");
     postfix_to_nfa(s.as_str())
 }
 
@@ -180,7 +205,7 @@ mod test {
 
     #[test]
     fn basic_regex() {
-        let mut r = compile_regex("a");
+        let mut r = compile_regex("a").unwrap();
 
         assert!(r.run(&['a']));
         assert!(!r.run(&['b']));
@@ -189,7 +214,7 @@ mod test {
 
     #[test]
     fn basic_regex_alter() {
-        let mut r = compile_regex("a|b");
+        let mut r = compile_regex("a|b").unwrap();
 
         assert!(r.run(&['a']));
         assert!(r.run(&['b']));
@@ -199,7 +224,7 @@ mod test {
 
     #[test]
     fn basic_regex_concat() {
-        let mut r = compile_regex("ab");
+        let mut r = compile_regex("ab").unwrap();
 
         assert!(!r.run(&['a']));
         assert!(!r.run(&['b']));
@@ -210,7 +235,7 @@ mod test {
 
     #[test]
     fn basic_regex_concat_and_alt() {
-        let mut r = compile_regex("(a|b)c");
+        let mut r = compile_regex("(a|b)c").unwrap();
 
         assert!(!r.run(&['a', 'a']));
         assert!(!r.run(&['a', 'b']));
@@ -221,7 +246,7 @@ mod test {
 
     #[test]
     fn basic_regex_closure() {
-        let mut r = compile_regex("a*");
+        let mut r = compile_regex("a*").unwrap();
 
         assert!(r.run(&['a', 'a']));
         assert!(r.run(&['a', 'a', 'a', 'a', 'a']));
@@ -232,7 +257,7 @@ mod test {
 
     #[test]
     fn basic_regex_alter_closure() {
-        let mut r = compile_regex("(a|b)*");
+        let mut r = compile_regex("(a|b)*").unwrap();
 
         assert!(r.run(&['a', 'a']));
         assert!(r.run(&['a', 'a', 'a', 'a', 'a']));
@@ -246,7 +271,7 @@ mod test {
 
     #[test]
     fn basic_regex_alter_concat_closure() {
-        let mut r = compile_regex("((a|b)c)*");
+        let mut r = compile_regex("((a|b)c)*").unwrap();
 
         assert!(r.run(&['a', 'c', 'a', 'c']));
         assert!(r.run(&['b', 'c', 'a', 'c']));
