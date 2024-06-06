@@ -140,16 +140,8 @@ impl ThompsonNfa {
     }
 
     pub fn closure(&mut self) {
-        let mut m = State::MIN;
-
-        // Find next state
-        self.transitions.iter().for_each(|((cur, _), vec)| {
-            m = m.max(*cur);
-            m = m.max(*vec.iter().max().unwrap());
-        });
-
-        let new_start = m + 1;
-        let new_acc = m + 2;
+        let new_start = Self::next_state();
+        let new_acc = Self::next_state();
 
         // Connect accepting to start
         self.add_new_transitions((self.accepting, None), vec![self.start, new_acc]);
@@ -210,9 +202,6 @@ impl ThompsonNfa {
                 }
             }
         }
-
-        println!("{:?}", qq);
-        println!("{:?}", new_transitions);
 
         let map_states = |trans: &HashMap::<(Vec<State>, char), Vec<State>>| -> dfa::Dfa {
             let mut map = HashMap::<Vec<State>, State>::new();
