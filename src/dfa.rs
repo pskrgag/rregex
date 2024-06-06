@@ -3,16 +3,16 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 pub type State = usize;
-pub type Transtions<T> = HashMap<(State, T), State>;
+pub type Transtions = HashMap<(State, char), State>;
 
-pub struct Dfa<T> {
-    transitions: Transtions<T>,
+pub struct Dfa {
+    transitions: Transtions,
     start: State,
     accepting: Vec<State>,
 }
 
-impl<T: Eq + Hash + Copy> Dfa<T> {
-    fn new(transitions: Transtions<T>, start: State, accepting: Vec<State>) -> Self {
+impl Dfa {
+    pub fn new(transitions: Transtions, start: State, accepting: Vec<State>) -> Self {
         Self {
             transitions,
             start,
@@ -20,11 +20,11 @@ impl<T: Eq + Hash + Copy> Dfa<T> {
         }
     }
 
-    pub fn run(&mut self, input: &[T]) -> bool {
+    pub fn run(&mut self, input: &str) -> bool {
         let mut current = self.start;
 
-        for i in input.into_iter() {
-            if let Some(next) = self.transitions.get(&(current, *i)) {
+        for i in input.chars() {
+            if let Some(next) = self.transitions.get(&(current, i)) {
                 current = *next;
             } else {
                 return false;
@@ -37,7 +37,7 @@ impl<T: Eq + Hash + Copy> Dfa<T> {
 
 #[allow(dead_code)]
 #[cfg(test)]
-impl<T: Eq + Hash + Copy + Debug> Dfa<T> {
+impl Dfa {
     pub fn dump_to_dot(&self) -> String {
         let mut s = String::from("digraph G {\n");
 
@@ -67,12 +67,12 @@ mod test {
     // <accepting state>
     // ... (m times)
     // <start state>
-    pub fn parse_string(s: &str) -> Option<(Transtions<char>, State, Vec<State>)> {
+    pub fn parse_string(s: &str) -> Option<(Transtions, State, Vec<State>)> {
         let lines = s.lines().collect::<Vec<_>>();
         let re = Regex::new(r"(\d), (.) -> (\d)").unwrap();
         let re1 = Regex::new(r"(\d)").unwrap();
 
-        let mut trans = Transtions::<char>::new();
+        let mut trans = Transtions::new();
         let mut acc = Vec::new();
 
         for i in &lines[..lines.len() - 1] {
@@ -102,8 +102,8 @@ mod test {
         let dfa = parse_string(s).unwrap();
         let mut dfa = Dfa::new(dfa.0, dfa.1, dfa.2);
 
-        assert!(dfa.run("a".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa.run("abc".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("a"));
+        assert!(!dfa.run("abc"));
     }
 
     #[test]
@@ -113,8 +113,8 @@ mod test {
         let dfa = parse_string(s).unwrap();
         let mut dfa = Dfa::new(dfa.0, dfa.1, dfa.2);
 
-        assert!(dfa.run("ab".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa.run("abc".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("ab"));
+        assert!(!dfa.run("abc"));
     }
 
     #[test]
@@ -124,8 +124,8 @@ mod test {
         let dfa = parse_string(s).unwrap();
         let mut dfa = Dfa::new(dfa.0, dfa.1, dfa.2);
 
-        assert!(dfa.run("ac".chars().collect::<Vec<_>>().as_slice()));
-        assert!(dfa.run("bd".chars().collect::<Vec<_>>().as_slice()));
-        assert!(!dfa.run("ad".chars().collect::<Vec<_>>().as_slice()));
+        assert!(dfa.run("ac"));
+        assert!(dfa.run("bd"));
+        assert!(!dfa.run("ad"));
     }
 }
