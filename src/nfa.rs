@@ -56,6 +56,7 @@ impl ThompsonNfa {
         }
     }
 
+    #[cfg(test)]
     pub fn run(&mut self, input: &str) -> bool {
         let mut vd = VecDeque::new();
 
@@ -96,47 +97,31 @@ impl ThompsonNfa {
 
     pub fn alternate(&mut self, other: Self) {
         let mut next_state = Self::next_state();
-        let mut new = Self {
-            transitions: Transtions::new(),
-            start: usize::MAX,
-            accepting: usize::MAX,
-        };
 
         // Insert start state.
-        new.transitions
+        self.transitions
             .insert((next_state, None), vec![self.start, other.start]);
-        new.start = next_state;
+        self.start = next_state;
 
         next_state = Self::next_state();
 
         // Connect all accepting states to new accepting state
-        new.add_new_transition((self.accepting, None), next_state);
-        new.add_new_transition((other.accepting, None), next_state);
+        self.add_new_transition((self.accepting, None), next_state);
+        self.add_new_transition((other.accepting, None), next_state);
 
         // Setup everything else
-        new.accepting = next_state;
-        new.transitions.extend(other.transitions);
-        new.transitions.extend(self.transitions.clone());
-
-        *self = new;
+        self.accepting = next_state;
+        self.transitions.extend(other.transitions);
+        self.transitions.extend(self.transitions.clone());
     }
 
     pub fn concatentation(&mut self, other: Self) {
-        let mut new = Self {
-            transitions: Transtions::new(),
-            start: usize::MAX,
-            accepting: usize::MAX,
-        };
-
         // Connect all accepting states in self to middle state
-        new.add_new_transitions((self.accepting, None), vec![other.start]);
+        self.add_new_transitions((self.accepting, None), vec![other.start]);
 
-        new.accepting = other.accepting;
-        new.start = self.start;
-        new.transitions.extend(other.transitions);
-        new.transitions.extend(self.transitions.clone());
-
-        *self = new;
+        self.accepting = other.accepting;
+        self.start = self.start;
+        self.transitions.extend(other.transitions);
     }
 
     pub fn closure(&mut self) {
