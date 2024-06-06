@@ -1,4 +1,5 @@
 use crate::nfa::*;
+use crate::dfa::*;
 use std::collections::VecDeque;
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy)]
@@ -193,11 +194,11 @@ pub fn postfix_to_nfa(s: &str) -> Option<ThompsonNfa> {
     stack.pop_front()
 }
 
-pub fn compile_regex(s: &str) -> Option<ThompsonNfa> {
+pub fn compile_regex(s: &str) -> Option<Dfa> {
     let s = convert_to_prefix(s)?;
 
-    println!("{s}");
-    postfix_to_nfa(s.as_str())
+    let nfa = postfix_to_nfa(s.as_str())?;
+    Some(nfa.subset_transition())
 }
 
 #[cfg(test)]
